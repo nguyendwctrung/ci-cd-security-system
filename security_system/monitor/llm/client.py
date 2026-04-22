@@ -1,26 +1,25 @@
 """
-LLM client for Google Gemini API.
+LLM client for Google Gemini API (google-genai SDK).
 
-Handles initialization and raw content generation.
+Handles initialization and content generation via Gemini.
 All API key and model configuration comes from config.settings.
 """
 
 from __future__ import annotations
 
 import json
+import os
 from typing import Optional
 
-from security_system.config.settings import settings
 from security_system.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 try:
     from google import genai
-    from google.genai import types as genai_types
 except ImportError as exc:
     raise ImportError(
-        "google-genai is required. Install it with: pip install google-genai"
+        "google-genai is required. Install with: pip install google-genai"
     ) from exc
 
 
@@ -29,80 +28,90 @@ class LLMClient:
     Thin wrapper around the Google Gemini API client.
 
     Responsibilities:
-    - Initialize the API client using the configured API key.
-    - Send a prompt and return the raw text response.
-    - Handle API-level errors cleanly.
+    - Initialize the API client using GOOGLE_API_KEY env var
+    - Send prompts and return raw text or parsed JSON responses
+    - Handle API-level errors gracefully without crashing
 
     Usage:
         client = LLMClient()
         text = client.generate(system_prompt, user_prompt)
+        result = client.generate_json(system_prompt, user_prompt)
     """
 
-    def __init__(self) -> None:
-        if not settings.is_llm_configured():
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        """Initialize Gemini client with API key from env or parameter."""
+        key = api_key or os.getenv("GOOGLE_API_KEY", "").strip()
+        
+        if not key:
             raise EnvironmentError(
-                "GOOGLE_API_KEY is not set. "
-                "Export it or add it to security_system/.env"
+                "GOOGLE_API_KEY not set. "
+                "Export GOOGLE_API_KEY or pass api_key parameter."
             )
-        self._client = genai.Client(api_key=settings.google_api_key)
-        self._model = settings.llm_model
+        
+        self._client = genai.Client(api_key=key)
+        self._model = "gemini-2.5-flash-lite"
         logger.info("LLMClient initialized (model: %s)", self._model)
 
     def generate(self, system_prompt: str, user_prompt: str) -> Optional[str]:
         """
-        Sends both prompts to Gemini and returns the response text.
+        Send prompts to Gemini and return raw text response.
 
         Args:
-            system_prompt: Role/instruction context for the model.
-            user_prompt:   The specific request or data to analyze.
+            system_prompt: System instructions
+            user_prompt:   Analysis request
 
         Returns:
-            Raw response text, or None on failure.
+            Raw response text, or None on API failure
         """
         try:
+            full_prompt = f"{system_prompt}\n\n{user_prompt}"
             response = self._client.models.generate_content(
                 model=self._model,
-                contents=[
-                    {"role": "user", "parts": [{"text": system_prompt}]},
-                    {"role": "user", "parts": [{"text": user_prompt}]},
-                ],
-                config=genai_types.GenerateContentConfig(
-                    temperature=0.3,
-                    max_output_tokens=settings.llm_max_tokens,
-                ),
+                contents=full_prompt,
             )
 
-            text = response.text
-            if not text:
-                logger.error("Gemini returned an empty response")
+            if not response.text:
+                logger.error("Gemini returned empty response")
                 return None
 
-            logger.debug("Received LLM response (%d chars)", len(text))
-            return text
+            logger.debug("Received Gemini response (%d chars)", len(response.text))
+            return response.text
 
         except Exception as exc:  # pylint: disable=broad-except
             logger.error("Gemini API call failed: %s", exc)
             return None
 
-    def generate_json(self, system_prompt: str, user_prompt: str) -> Optional[dict]:
+    def generate_json(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> Optional[dict]:
         """
-        Calls generate() and parses the response as JSON.
+        Send prompts to Gemini and parse response as JSON.
+
+        Args:
+            system_prompt: System instructions defining the model's role
+            user_prompt:   The actual security analysis request
 
         Returns:
-            Parsed dict, or None if the response is empty or not valid JSON.
+            Parsed JSON dict, or None on failure
         """
         text = self.generate(system_prompt, user_prompt)
         if text is None:
             return None
 
-        # Strip markdown code fences if the model wraps its output
-        clean = text.strip()
-        if clean.startswith("```"):
-            clean = clean.split("\n", 1)[-1]
-            clean = clean.rsplit("```", 1)[0].strip()
+        # Parse response as JSON
+        json_text = text.strip()
+        
+        # Strip markdown code fences if present
+        if json_text.startswith("```"):
+            json_text = json_text.split("\n", 1)[-1]
+            json_text = json_text.rsplit("```", 1)[0].strip()
 
         try:
-            return json.loads(clean)
+            result = json.loads(json_text)
+            logger.info("Gemini response parsed successfully")
+            return result
         except json.JSONDecodeError as exc:
-            logger.error("Failed to parse LLM response as JSON: %s", exc)
+            logger.error("Failed to parse Gemini response as JSON: %s", exc)
             return None
