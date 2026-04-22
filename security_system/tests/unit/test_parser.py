@@ -28,14 +28,14 @@ class TestGitleaksParser:
                     "SecretType": "AWS API Key",
                     "StartLine": 42,
                     "Match": "AKIA1234567890ABCDEF",
-                    "Entropy": 4.8,
+                    "Entropy": 3.5,  # Below 4.5 threshold → HIGH
                 },
                 {
                     "File": "secrets.env",
                     "SecretType": "Private Key",
                     "StartLine": 10,
                     "Match": "-----BEGIN PRIVATE KEY-----",
-                    "Entropy": 5.2,
+                    "Entropy": 5.2,  # Above 4.5 threshold → CRITICAL
                 },
             ]
         }
@@ -50,7 +50,7 @@ class TestGitleaksParser:
         
         assert summary.total_findings == 2
         assert summary.by_severity["CRITICAL"] == 1  # entropy 5.2
-        assert summary.by_severity["HIGH"] == 1      # entropy 4.8
+        assert summary.by_severity["HIGH"] == 1      # entropy 3.5
         assert summary.average_score > 7.0
 
     def test_parse_missing_gitleaks_report(self, parser, tmp_path):
