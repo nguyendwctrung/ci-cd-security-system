@@ -1,0 +1,65 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# Generated reports (but preserve directory structure with .gitkeep)
+reports/*
+!reports/.gitkeep
+reports/history/*
+!reports/history/.gitkeep
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# OS-specific files
+Thumbs.db
+.DS_Store
+*.app
+
+# Temporary and build files
+*.tmp
+*.log
+tempUploads/
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.cover
+
+# Package management
+*.egg
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Miscellaneous
+*.bak
+*.orig
+.env.local
+.env.*.local
