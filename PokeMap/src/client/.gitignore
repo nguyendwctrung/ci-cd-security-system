@@ -1,27 +1,41 @@
+# ────────────────────────────────────────────
+# PokeMap client — Vite + React + Tailwind
+# ────────────────────────────────────────────
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# TypeScript
+*.tsbuildinfo
+
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Test coverage
+coverage/
+*.lcov
 
-# env files (can opt-in for committing if needed)
-.env
+# Vite cache
+.vite/
 
-# Editor directories and files
+# OS and editor
+.DS_Store
+Thumbs.db
 .vscode/*
 !.vscode/extensions.json
-.idea
-.DS_Store
+.idea/
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
