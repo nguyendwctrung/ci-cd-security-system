@@ -1,0 +1,159 @@
+#!/bin/bash
+
+#######################################
+# Pre-commit hook for security scans
+# Detects secrets, code issues, and dependency vulnerabilities
+#######################################
+
+set -e
+
+# Color codes
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Counters
+BLOCKING_ERRORS=0
+WARNINGS=0
+
+# Helper functions
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warn() {
+    echo -e "${YELLOW}[WARN]${NC} $1"
+    ((WARNINGS++))
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    ((BLOCKING_ERRORS++))
+}
+
+# Check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Get staged files
+get_staged_files() {
+    git diff --cached --name-only --diff-filter=ACM
+}
+
+# Main execution
+main() {
+    log_info "Starting pre-commit security checks..."
+    echo ""
+
+    # Get staged files
+    STAGED_FILES=$(get_staged_files)
+
+    if [[ -z "$STAGED_FILES" ]]; then
+        log_warn "No staged files found"
+        return 0
+    fi
+
+    echo "Staged files:"
+    echo "  ${STAGED_FILES//$'\n'/$'\n'  }"
+    echo ""
+
+    # 1. GITLEAKS - Secret Detection (BLOCKING)
+    log_info "Running Gitleaks (secret detection)..."
+    if command_exists gitleaks; then
+        if gitleaks detect --staged --verbose 2>/dev/null; then
+            log_success "Gitleaks: No secrets detected"
+        else
+            log_error "Gitleaks: Secrets detected! Commit blocked."
+            echo ""
+        fi
+    else
+        log_warn "Gitleaks not installed. Skipping secret detection."
+        log_warn "Install: brew install gitleaks"
+    fi
+    echo ""
+
+    # 2. SEMGREP - Code Quality (WARNING)
+    log_info "Running Semgrep (code analysis)..."
+    if command_exists semgrep; then
+        SEMGREP_OUTPUT=$(mktemp)
+        if semgrep --config=p/security-audit --json "$STAGED_FILES" > "$SEMGREP_OUTPUT" 2>/dev/null; then
+            ISSUE_COUNT=$(grep -c '"issue"' "$SEMGREP_OUTPUT" 2>/dev/null || echo 0)
+            if [[ $ISSUE_COUNT -eq 0 ]]; then
+                log_success "Semgrep: No issues found"
+            else
+                log_warn "Semgrep: Found $ISSUE_COUNT issue(s)"
+                cat "$SEMGREP_OUTPUT" | tail -20
+            fi
+        else
+            log_warn "Semgrep: Scan completed with warnings"
+        fi
+        rm -f "$SEMGREP_OUTPUT"
+    else
+        log_warn "Semgrep not installed. Skipping code analysis."
+        log_warn "Install: brew install semgrep"
+    fi
+    echo ""
+
+    # 3. TRIVY - Dependency Scanning (WARNING)
+    log_info "Running Trivy (dependency scanning)..."
+    if command_exists trivy; then
+        # Scan package files in staged files
+        PACKAGE_FILES=$(echo "$STAGED_FILES" | grep -E "(package\.json|package-lock\.json|requirements\.txt|Gemfile|pom\.xml|go\.mod)" || true)
+
+        if [[ -z "$PACKAGE_FILES" ]]; then
+            log_warn "Trivy: No package files in staged changes"
+        else
+            TRIVY_OUTPUT=$(mktemp)
+            if trivy fs --severity HIGH,CRITICAL --format json "$PACKAGE_FILES" > "$TRIVY_OUTPUT" 2>/dev/null; then
+                VULN_COUNT=$(grep -c '"Title"' "$TRIVY_OUTPUT" 2>/dev/null || echo 0)
+                if [[ $VULN_COUNT -eq 0 ]]; then
+                    log_success "Trivy: No vulnerabilities found"
+                else
+                    log_warn "Trivy: Found $VULN_COUNT potential vulnerabilit(ies)"
+                    cat "$TRIVY_OUTPUT" | tail -20
+                fi
+            else
+                log_warn "Trivy: Scan completed with warnings"
+            fi
+            rm -f "$TRIVY_OUTPUT"
+        fi
+    else
+        log_warn "Trivy not installed. Skipping dependency scanning."
+        log_warn "Install: brew install trivy"
+    fi
+    echo ""
+
+    # Summary
+    log_info "Pre-commit security checks complete"
+    if [[ $BLOCKING_ERRORS -gt 0 ]]; then
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${RED}✗ BLOCKING ERRORS: $BLOCKING_ERRORS${NC}"
+        echo -e "${RED}Commit rejected. Fix errors and try again.${NC}"
+        echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        return 1
+    fi
+
+    if [[ $WARNINGS -gt 0 ]]; then
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${YELLOW}WARNINGS: $WARNINGS (non-blocking)${NC}"
+        echo -e "${YELLOW}Commit proceeding with warnings.${NC}"
+        echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        return 0
+    fi
+
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}All security checks passed!${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    return 0
+}
+
+# Run main function
+main
+exit $?
