@@ -58,6 +58,26 @@ htmlcov/
 pip-log.txt
 pip-delete-this-directory.txt
 
+# Type-checking and linting caches
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.pyre/
+
+# Jupyter Notebooks (if used for analysis)
+.ipynb_checkpoints/
+*.ipynb
+
+# Secrets and API keys
+*.pem
+*.key
+*.p12
+secrets.json
+
+# LLM / scanner logs
+llm_analyzer.log
+security_scan.log
+
 # Miscellaneous
 *.bak
 *.orig
