@@ -36,11 +36,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -q -r security_system/requirements.txt
+        env:
+          # Ensure pip uses latest package index
+          PIP_INDEX_URL: https://pypi.org/simple/
 
       - name: Install security scanning tools
         run: |
           echo "Installing Gitleaks..."
-          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.0/gitleaks-linux-x64 -o gitleaks
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o gitleaks
           chmod +x gitleaks
           sudo mv gitleaks /usr/local/bin/
           
@@ -91,7 +94,7 @@ jobs:
       - name: Run unified security pipeline
         id: decision
         env:
-          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           echo "Running unified security pipeline..."
           python -c "from security_system.monitor.pipeline import SecurityPipeline; import sys; sys.exit(SecurityPipeline().run().exit_code())"
