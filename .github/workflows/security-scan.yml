@@ -64,13 +64,7 @@ jobs:
         run: |
           echo "Running Gitleaks..."
           echo '{"Leaks":[]}' > ${{ env.REPORTS_DIR }}/gitleaks-report.json
-          gitleaks detect --source . \
-            --report-format json \
-            --report-path ${{ env.REPORTS_DIR }}/gitleaks-report.json \
-            --gitleaks-ignore-path .gitleaksignore \
-            --no-banner \
-            --redact \
-            --exit-code 0
+          gitleaks detect --source . --report-format json --report-path "${{ env.REPORTS_DIR }}/gitleaks-report.json" --no-banner --exit-code 0
           echo "Gitleaks completed"
         continue-on-error: true
 
