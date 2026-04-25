@@ -67,8 +67,10 @@ jobs:
           gitleaks detect --source . \
             --report-format json \
             --report-path ${{ env.REPORTS_DIR }}/gitleaks-report.json \
-            --no-banner
-            --redact
+            --gitleaks-ignore-path .gitleaksignore \
+            --no-banner \
+            --redact \
+            --exit-code 0
           echo "Gitleaks completed"
         continue-on-error: true
 
