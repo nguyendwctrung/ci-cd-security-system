@@ -16,10 +16,14 @@ import logging
 import os
 from typing import Optional
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 try:
-    from google import genai
+    import google.genai as genai
 except ImportError as exc:
     raise ImportError(
         "google-genai is required. Install with: pip install google-genai"
