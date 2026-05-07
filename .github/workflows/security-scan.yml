@@ -7,7 +7,7 @@ on:
     branches: [main, dev]
 
 env:
-  REPORTS_DIR: security_system/reports
+  REPORTS_DIR: security_system_v1/reports/artifacts
 
 jobs:
   security-scan:
@@ -35,7 +35,9 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -q -r security_system/requirements.txt
+          pip install -q uv
+          uv pip install -r security_system_v1/requirements.txt
+          pip install -q -r security_system_v1/requirements.txt
         env:
           # Ensure pip uses latest package index
           PIP_INDEX_URL: https://pypi.org/simple/
@@ -101,7 +103,7 @@ jobs:
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           echo "Running unified security pipeline..."
-          python -c "from security_system.monitor.pipeline import SecurityPipeline; import sys; sys.exit(SecurityPipeline().run().exit_code())"
+          python -m security_system_v1.application.pipeline
 
       - name: Display reports
         if: always()
